@@ -1,0 +1,6 @@
+**/target
+/local-only
+/CLAUDE.md
+/.claude
+**/*.lprf
+**/*.profiler-map

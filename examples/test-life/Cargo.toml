@@ -1,0 +1,8 @@
+[package]
+name = "test-life"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.28"
+ctrlc = "3.4"

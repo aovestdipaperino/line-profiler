@@ -1,0 +1,16 @@
+[package]
+name = "lprf-parser"
+version = "0.1.0"
+edition = "2024"
+authors = ["Enzo Lombardi <enzinol@gmail.com>"]
+description = "Parser library for .lprf line profiler files"
+license = "MIT"
+repository = "https://github.com/aovestdipaperino/line-profiler"
+keywords = ["profiler", "parser", "lprf"]
+categories = ["development-tools::profiling", "parsing"]
+
+[dependencies]
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
