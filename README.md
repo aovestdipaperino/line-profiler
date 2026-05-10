@@ -7,7 +7,7 @@ A line-level profiler for Rust that shows exactly where your program spends time
 - Line-by-line execution time tracking
 - Hierarchical call tree visualization
 - Integrates with Cargo as custom subcommands
-- Multiple output formats (tree, flat, CSV, JSON)
+- Multiple output formats (tree, flat, CSV, JSON, Mermaid)
 - Filters to focus on hot code paths
 
 ## Installation
@@ -77,11 +77,13 @@ cargo profile-run -- arg1 arg2  # Pass arguments to binary
 Reads and displays `.lprf` profile files:
 
 ```bash
-lprf profile.lprf                  # Tree view (default)
-lprf profile.lprf --format flat    # Flat list
-lprf profile.lprf --format csv     # CSV output
-lprf profile.lprf --min-percent 1  # Only show entries > 1%
-lprf profile.lprf --sort self      # Sort by self time
+lprf profile.lprf                    # Tree view (default)
+lprf profile.lprf --format flat      # Flat list
+lprf profile.lprf --format csv       # CSV output
+lprf profile.lprf --format json      # JSON output
+lprf profile.lprf --format mermaid   # Mermaid flowchart
+lprf profile.lprf --min-percent 1    # Only show entries > 1%
+lprf profile.lprf --sort self        # Sort by self time
 ```
 
 ## How It Works

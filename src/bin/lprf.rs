@@ -3,8 +3,8 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use lprf_parser::{
-    generate_subtree, read_profile, read_profile_from_port,
-    ProfileHeader, ProfileNode, SymbolMap, TreeNode, TreeNodeType,
+    ProfileHeader, ProfileNode, SymbolMap, TreeNode, TreeNodeType, generate_subtree, read_profile,
+    read_profile_from_port,
 };
 use std::path::PathBuf;
 use std::time::{Duration, UNIX_EPOCH};
@@ -63,6 +63,8 @@ enum OutputFormat {
     Csv,
     /// JSON output
     Json,
+    /// Mermaid flowchart
+    Mermaid,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
@@ -189,7 +191,8 @@ fn is_mangled_library_function(name: &str) -> bool {
         return false;
     }
 
-    if name.starts_with("_ZN3std") || name.starts_with("_ZN4core") || name.starts_with("_ZN5alloc") {
+    if name.starts_with("_ZN3std") || name.starts_with("_ZN4core") || name.starts_with("_ZN5alloc")
+    {
         return true;
     }
 
@@ -209,7 +212,11 @@ fn is_mangled_library_function(name: &str) -> bool {
 }
 
 /// Find the depth of the user's main function
-fn find_user_main_depth(nodes: &[ProfileNode], symbol_map: Option<&SymbolMap>, pre_main: bool) -> u16 {
+fn find_user_main_depth(
+    nodes: &[ProfileNode],
+    symbol_map: Option<&SymbolMap>,
+    pre_main: bool,
+) -> u16 {
     if pre_main {
         return 0;
     }
@@ -262,9 +269,13 @@ fn print_tree(
 
     // Sort function for children
     let sort_fn: Box<dyn Fn(&TreeNode, &TreeNode) -> std::cmp::Ordering> = match args.sort {
-        SortBy::Time => Box::new(|a: &TreeNode, b: &TreeNode| b.inclusive_time_ns.cmp(&a.inclusive_time_ns)),
+        SortBy::Time => {
+            Box::new(|a: &TreeNode, b: &TreeNode| b.inclusive_time_ns.cmp(&a.inclusive_time_ns))
+        }
         SortBy::Calls => Box::new(|a: &TreeNode, b: &TreeNode| b.call_count.cmp(&a.call_count)),
-        SortBy::SelfTime => Box::new(|a: &TreeNode, b: &TreeNode| b.exclusive_time_ns.cmp(&a.exclusive_time_ns)),
+        SortBy::SelfTime => {
+            Box::new(|a: &TreeNode, b: &TreeNode| b.exclusive_time_ns.cmp(&a.exclusive_time_ns))
+        }
     };
 
     // Print tree recursively
@@ -291,13 +302,21 @@ fn print_tree(
 
         // Choose time to display
         let (display_pct, display_time, time_label) = if show_exclusive {
-            (node.exclusive_percent(total_time), node.exclusive_time_ns, "self")
+            (
+                node.exclusive_percent(total_time),
+                node.exclusive_time_ns,
+                "self",
+            )
         } else {
             (inclusive_pct, node.inclusive_time_ns, "total")
         };
 
         // Color coding
-        let (color_start, color_end) = if node.is_library { (GREY, RESET) } else { ("", "") };
+        let (color_start, color_end) = if node.is_library {
+            (GREY, RESET)
+        } else {
+            ("", "")
+        };
         let pct_bar = format_percent_bar(display_pct, 10);
 
         // Print based on node type
@@ -353,7 +372,15 @@ fn print_tree(
         let num_children = sorted_children.len();
         for (i, child) in sorted_children.iter().enumerate() {
             let child_is_last = i == num_children - 1;
-            print_node(child, &child_prefix, child_is_last, total_time, min_percent, show_exclusive, sort_fn);
+            print_node(
+                child,
+                &child_prefix,
+                child_is_last,
+                total_time,
+                min_percent,
+                show_exclusive,
+                sort_fn,
+            );
         }
     }
 
@@ -364,7 +391,15 @@ fn print_tree(
     let num_roots = sorted_roots.len();
     for (i, root) in sorted_roots.iter().enumerate() {
         let is_last = i == num_roots - 1;
-        print_node(root, "", is_last, tree.get_total_time(), args.min_percent, args.exclusive, &*sort_fn);
+        print_node(
+            root,
+            "",
+            is_last,
+            tree.get_total_time(),
+            args.min_percent,
+            args.exclusive,
+            &*sort_fn,
+        );
     }
 }
 
@@ -379,9 +414,7 @@ fn print_flat(
     println!("Total time: {}", format_duration(header.elapsed_ns));
     println!();
 
-    let mut sorted_nodes: Vec<_> = nodes.iter()
-        .filter(|n| n.depth() >= depth_offset)
-        .collect();
+    let mut sorted_nodes: Vec<_> = nodes.iter().filter(|n| n.depth() >= depth_offset).collect();
     match args.sort {
         SortBy::Time => sorted_nodes.sort_by(|a, b| b.total_time_ns().cmp(&a.total_time_ns())),
         SortBy::Calls => sorted_nodes.sort_by(|a, b| b.call_count().cmp(&a.call_count())),
@@ -422,14 +455,21 @@ fn print_flat(
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| format!("func_{}", node.func_id()))
             };
-            let is_user_code = (node.line() != 0 || node.column() != 0) && !is_mangled_library_function(&n);
-            (format!("{}{}:{}:{}{}", n, YELLOW, node.line(), node.column(), RESET), is_user_code)
+            let is_user_code =
+                (node.line() != 0 || node.column() != 0) && !is_mangled_library_function(&n);
+            (
+                format!("{}{}:{}:{}{}", n, YELLOW, node.line(), node.column(), RESET),
+                is_user_code,
+            )
         } else {
             let file_info = symbol_map.and_then(|m| m.get_location(node.func_id()));
             if let Some((file, _, _, is_user_code)) = file_info {
                 let is_actually_user = *is_user_code && !is_mangled_library_function(file);
                 let short_file = file.rsplit('/').next().unwrap_or(file);
-                (format!("{}:{}:{}", short_file, node.line(), node.column()), is_actually_user)
+                (
+                    format!("{}:{}:{}", short_file, node.line(), node.column()),
+                    is_actually_user,
+                )
             } else {
                 let name = symbol_map
                     .and_then(|m| m.get_function(node.func_id()))
@@ -507,7 +547,10 @@ fn print_csv(
             let file_info = symbol_map.and_then(|m| m.get_location(node.func_id()));
             let (n, is_user_code) = if let Some((file, _, _, is_user)) = file_info {
                 let short_file = file.rsplit('/').next().unwrap_or(file);
-                (format!("{}:{}:{}", short_file, node.line(), node.column()), *is_user)
+                (
+                    format!("{}:{}:{}", short_file, node.line(), node.column()),
+                    *is_user,
+                )
             } else {
                 let fname = symbol_map
                     .and_then(|m| m.get_function(node.func_id()))
@@ -644,14 +687,156 @@ fn print_json(
     println!("}}");
 }
 
+fn print_mermaid(
+    header: &ProfileHeader,
+    nodes: &[ProfileNode],
+    symbol_map: Option<&SymbolMap>,
+    args: &Args,
+) {
+    // Generate the tree using the API
+    let include_library = args.library.unwrap_or(false);
+    let tree = generate_subtree(header, nodes, symbol_map, include_library, args.pre_main);
+
+    println!("```mermaid");
+    println!("flowchart TD");
+
+    // Counter for generating unique node IDs
+    let mut node_counter = 0usize;
+
+    // Recursive function to generate mermaid nodes and edges
+    fn generate_mermaid_node(
+        node: &TreeNode,
+        parent_id: Option<usize>,
+        counter: &mut usize,
+        total_time: u64,
+        min_percent: Option<f64>,
+        show_exclusive: bool,
+    ) -> Option<usize> {
+        let inclusive_pct = node.inclusive_percent(total_time);
+
+        // Skip if below minimum percentage
+        if let Some(min) = min_percent {
+            if inclusive_pct < min {
+                return None;
+            }
+        }
+
+        let my_id = *counter;
+        *counter += 1;
+
+        // Choose time to display
+        let (display_pct, display_time) = if show_exclusive {
+            (node.exclusive_percent(total_time), node.exclusive_time_ns)
+        } else {
+            (inclusive_pct, node.inclusive_time_ns)
+        };
+
+        // Format duration for display
+        let time_str = if display_time >= 1_000_000_000 {
+            format!("{:.2}s", display_time as f64 / 1_000_000_000.0)
+        } else if display_time >= 1_000_000 {
+            format!("{:.2}ms", display_time as f64 / 1_000_000.0)
+        } else if display_time >= 1_000 {
+            format!("{:.2}us", display_time as f64 / 1_000.0)
+        } else {
+            format!("{}ns", display_time)
+        };
+
+        // Escape special characters for mermaid
+        let escaped_name = node
+            .name
+            .replace('"', "'")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('&', "&amp;");
+
+        // Generate node label based on type
+        let label = match node.node_type {
+            TreeNodeType::Function => {
+                format!(
+                    "{}:{}<br/>{:.1}% {}<br/>{} calls",
+                    escaped_name, node.line, display_pct, time_str, node.call_count
+                )
+            }
+            TreeNodeType::Line => {
+                format!(
+                    "{}<br/>{:.1}% {}<br/>{} hits",
+                    escaped_name, display_pct, time_str, node.call_count
+                )
+            }
+        };
+
+        // Determine node shape based on type and whether it's library code
+        let (open, close) = if node.is_library {
+            ("([", "])") // Stadium shape for library code
+        } else {
+            match node.node_type {
+                TreeNodeType::Function => ("[", "]"), // Rectangle for functions
+                TreeNodeType::Line => ("(", ")"),     // Rounded for lines
+            }
+        };
+
+        // Print node definition
+        println!("    N{}{}\"{}\"{}", my_id, open, label, close);
+
+        // Print edge from parent if exists
+        if let Some(pid) = parent_id {
+            // Color edge based on percentage
+            let edge_style = if display_pct >= 50.0 {
+                " -.->|hot|"
+            } else if display_pct >= 20.0 {
+                " -->|warm|"
+            } else {
+                " -->"
+            };
+            println!("    N{}{} N{}", pid, edge_style, my_id);
+        }
+
+        // Process children
+        for child in &node.children {
+            generate_mermaid_node(
+                child,
+                Some(my_id),
+                counter,
+                total_time,
+                min_percent,
+                show_exclusive,
+            );
+        }
+
+        Some(my_id)
+    }
+
+    // Generate nodes for all roots
+    for root in &tree.roots {
+        generate_mermaid_node(
+            root,
+            None,
+            &mut node_counter,
+            tree.get_total_time(),
+            args.min_percent,
+            args.exclusive,
+        );
+    }
+
+    // Add styling
+    println!();
+    println!("    %% Styling");
+    println!("    classDef hot fill:#ff6b6b,stroke:#c92a2a,color:#fff");
+    println!("    classDef warm fill:#ffd43b,stroke:#fab005,color:#000");
+    println!("    classDef cool fill:#69db7c,stroke:#37b24d,color:#000");
+    println!("    classDef lib fill:#868e96,stroke:#495057,color:#fff");
+
+    println!("```");
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
     // Check if profile path is a port (format: ":port")
     let profile_str = args.profile.to_string_lossy();
     let (header, nodes, embedded_map) = if profile_str.starts_with(':') {
-        let port: u16 = profile_str[1..].parse()
-            .context("Invalid port number")?;
+        let port: u16 = profile_str[1..].parse().context("Invalid port number")?;
         read_profile_from_port(port)?
     } else {
         read_profile(&args.profile)?
@@ -670,6 +855,7 @@ fn main() -> Result<()> {
         OutputFormat::Flat => print_flat(&header, &nodes, symbol_map.as_ref(), &args),
         OutputFormat::Csv => print_csv(&header, &nodes, symbol_map.as_ref(), &args),
         OutputFormat::Json => print_json(&header, &nodes, symbol_map.as_ref(), &args),
+        OutputFormat::Mermaid => print_mermaid(&header, &nodes, symbol_map.as_ref(), &args),
     }
 
     Ok(())
