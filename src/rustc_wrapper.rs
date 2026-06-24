@@ -120,7 +120,9 @@ impl RustcWrapper {
             rustc_path,
             instrument: true,
             debug: env::var("LINE_PROFILER_DEBUG")
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes"))
+                .map(|v| {
+                    v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes")
+                })
                 .unwrap_or(false),
         }
     }
@@ -147,7 +149,10 @@ impl RustcWrapper {
             if self.args[i] == "--crate-type=bin" {
                 return true;
             }
-            if self.args[i] == "--crate-type" && i + 1 < self.args.len() && self.args[i + 1] == "bin" {
+            if self.args[i] == "--crate-type"
+                && i + 1 < self.args.len()
+                && self.args[i + 1] == "bin"
+            {
                 return true;
             }
         }
@@ -208,8 +213,10 @@ impl RustcWrapper {
 
     /// Run rustc with instrumentation
     pub fn run(&self) -> Result<i32> {
-        let should_instrument =
-            self.instrument && self.is_primary_package() && self.is_target_crate() && self.is_binary_crate();
+        let should_instrument = self.instrument
+            && self.is_primary_package()
+            && self.is_target_crate()
+            && self.is_binary_crate();
 
         if !should_instrument {
             return self.run_rustc_passthrough();
@@ -218,7 +225,8 @@ impl RustcWrapper {
         if self.debug {
             eprintln!(
                 "[line-profiler] Instrumenting crate: {}",
-                self.get_crate_name().unwrap_or_else(|| "<unknown>".to_string())
+                self.get_crate_name()
+                    .unwrap_or_else(|| "<unknown>".to_string())
             );
         }
 
@@ -251,7 +259,9 @@ impl RustcWrapper {
             dir
         };
 
-        let crate_name = self.get_crate_name().unwrap_or_else(|| "unknown".to_string());
+        let crate_name = self
+            .get_crate_name()
+            .unwrap_or_else(|| "unknown".to_string());
 
         if self.debug {
             eprintln!("[line-profiler] Instrument dir: {}", temp_dir.display());
@@ -268,7 +278,10 @@ impl RustcWrapper {
 
         if !ir_path.exists() {
             if self.debug {
-                eprintln!("[line-profiler] Warning: IR file not created at {}, falling back to normal compilation", ir_path.display());
+                eprintln!(
+                    "[line-profiler] Warning: IR file not created at {}, falling back to normal compilation",
+                    ir_path.display()
+                );
             }
             return self.run_rustc_passthrough();
         }
@@ -291,7 +304,10 @@ impl RustcWrapper {
         if let Err(e) = instrumenter.write_mapping(&mapping_path) {
             eprintln!("[line-profiler] Warning: Failed to write mapping: {}", e);
         } else if self.debug {
-            eprintln!("[line-profiler] Wrote mapping to: {}", mapping_path.display());
+            eprintln!(
+                "[line-profiler] Wrote mapping to: {}",
+                mapping_path.display()
+            );
         }
 
         // Step 3: Compile instrumented IR to object file
@@ -366,7 +382,9 @@ impl RustcWrapper {
         }
 
         // Find the generated .ll file
-        let crate_name = self.get_crate_name().unwrap_or_else(|| "unknown".to_string());
+        let crate_name = self
+            .get_crate_name()
+            .unwrap_or_else(|| "unknown".to_string());
         let expected_ll = output_dir.join(format!("{}.ll", crate_name));
 
         if expected_ll.exists() {
@@ -407,7 +425,10 @@ impl RustcWrapper {
 
             // Remove 'nuw', 'nsw', and 'nneg' from instructions (newer LLVM features)
             // These appear in getelementptr, trunc, zext, sext, and other instructions
-            if cleaned_line.contains(" nuw ") || cleaned_line.contains(" nsw ") || cleaned_line.contains(" nneg ") {
+            if cleaned_line.contains(" nuw ")
+                || cleaned_line.contains(" nsw ")
+                || cleaned_line.contains(" nneg ")
+            {
                 cleaned_line = cleaned_line.replace(" nuw ", " ");
                 cleaned_line = cleaned_line.replace(" nsw ", " ");
                 cleaned_line = cleaned_line.replace(" nneg ", " ");
@@ -459,7 +480,10 @@ impl RustcWrapper {
             while let Some(pos) = cleaned_line[search_from..].find("range(") {
                 let start = search_from + pos;
                 let is_standalone = start == 0
-                    || cleaned_line.as_bytes().get(start - 1).map_or(true, |&c| c == b' ' || c == b',');
+                    || cleaned_line
+                        .as_bytes()
+                        .get(start - 1)
+                        .map_or(true, |&c| c == b' ' || c == b',');
 
                 if !is_standalone {
                     search_from = start + 6;
@@ -480,11 +504,8 @@ impl RustcWrapper {
                     }
                 }
                 if depth == 0 && end > start {
-                    cleaned_line = format!(
-                        "{}{}",
-                        &cleaned_line[..start],
-                        &cleaned_line[end + 1..]
-                    );
+                    cleaned_line =
+                        format!("{}{}", &cleaned_line[..start], &cleaned_line[end + 1..]);
                 } else {
                     break;
                 }
@@ -567,10 +588,16 @@ impl RustcWrapper {
             }
         }
 
-        anyhow::bail!("Could not compile IR to object file. Please ensure llc or clang is installed.")
+        anyhow::bail!(
+            "Could not compile IR to object file. Please ensure llc or clang is installed."
+        )
     }
 
-    fn run_rustc_with_linker_wrapper(&self, obj_path: &Path, _instrument_dir: &Path) -> Result<i32> {
+    fn run_rustc_with_linker_wrapper(
+        &self,
+        obj_path: &Path,
+        _instrument_dir: &Path,
+    ) -> Result<i32> {
         // Strategy: Instead of letting rustc compile and link (which produces its own objects),
         // we emit only metadata from rustc, then manually link our instrumented object.
 
@@ -715,7 +742,11 @@ impl RustcWrapper {
             link_cmd.args(["-lSystem", "-lc", "-lm", "-lobjc"]);
             link_cmd.args(["-framework", "Foundation", "-framework", "CoreFoundation"]);
             link_cmd.arg("-arch");
-            link_cmd.arg(if cfg!(target_arch = "aarch64") { "arm64" } else { "x86_64" });
+            link_cmd.arg(if cfg!(target_arch = "aarch64") {
+                "arm64"
+            } else {
+                "x86_64"
+            });
         }
 
         #[cfg(target_os = "linux")]
@@ -735,7 +766,10 @@ impl RustcWrapper {
 
         if link_status.success() {
             if self.debug {
-                eprintln!("[line-profiler] Successfully linked: {}", output_path.display());
+                eprintln!(
+                    "[line-profiler] Successfully linked: {}",
+                    output_path.display()
+                );
             }
         }
 

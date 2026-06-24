@@ -26,7 +26,8 @@ pub struct SourceLocation {
 fn is_user_code_path(path: &str) -> bool {
     // Check for mangled library function names (used as fallback when file path is unavailable)
     // Standard library: _ZN3std, _ZN4core, _ZN5alloc
-    if path.starts_with("_ZN3std") || path.starts_with("_ZN4core") || path.starts_with("_ZN5alloc") {
+    if path.starts_with("_ZN3std") || path.starts_with("_ZN4core") || path.starts_with("_ZN5alloc")
+    {
         return false;
     }
     // Compiler generated: _ZN2__
@@ -38,7 +39,9 @@ fn is_user_code_path(path: &str) -> bool {
         return false;
     }
     // Also check for core/std/alloc segments in the mangled name
-    if path.starts_with("_ZN") && (path.contains("4core") || path.contains("3std") || path.contains("5alloc")) {
+    if path.starts_with("_ZN")
+        && (path.contains("4core") || path.contains("3std") || path.contains("5alloc"))
+    {
         return false;
     }
     // Cargo/package manager paths
@@ -105,7 +108,10 @@ impl Instrumenter {
         // Format: L <id> <file>:<line>:<col>:<is_user> (is_user: 1 or 0)
         for (loc, id) in &self.location_ids {
             let is_user = if loc.is_user_code { 1 } else { 0 };
-            content.push_str(&format!("L {} {}:{}:{}:{}\n", id, loc.file, loc.line, loc.column, is_user));
+            content.push_str(&format!(
+                "L {} {}:{}:{}:{}\n",
+                id, loc.file, loc.line, loc.column, is_user
+            ));
         }
 
         fs::write(path, content)?;
@@ -125,10 +131,17 @@ impl Instrumenter {
         let fn_def_re = Regex::new(r#"^define\s+[^@]*@"?([^"(]+)"?\("#)?;
         let fn_decl_re = Regex::new(r"^declare\s+")?;
         let dbg_loc_re = Regex::new(r"!dbg\s+!(\d+)")?;
-        let di_loc_re = Regex::new(r"!(\d+)\s*=\s*!DILocation\(line:\s*(\d+),\s*column:\s*(\d+),\s*scope:\s*!(\d+)")?;
-        let di_file_re = Regex::new(r#"!(\d+)\s*=\s*!DIFile\(filename:\s*"([^"]+)"(?:,\s*directory:\s*"([^"]*)")?"#)?;
-        let di_subprog_re = Regex::new(r"!(\d+)\s*=\s*(?:distinct\s+)?!DISubprogram\([^)]*file:\s*!(\d+)")?;
-        let di_lexblock_re = Regex::new(r"!(\d+)\s*=\s*(?:distinct\s+)?!DILexicalBlock(?:File)?\([^)]*(?:scope:\s*!(\d+))?[^)]*file:\s*!(\d+)")?;
+        let di_loc_re = Regex::new(
+            r"!(\d+)\s*=\s*!DILocation\(line:\s*(\d+),\s*column:\s*(\d+),\s*scope:\s*!(\d+)",
+        )?;
+        let di_file_re = Regex::new(
+            r#"!(\d+)\s*=\s*!DIFile\(filename:\s*"([^"]+)"(?:,\s*directory:\s*"([^"]*)")?"#,
+        )?;
+        let di_subprog_re =
+            Regex::new(r"!(\d+)\s*=\s*(?:distinct\s+)?!DISubprogram\([^)]*file:\s*!(\d+)")?;
+        let di_lexblock_re = Regex::new(
+            r"!(\d+)\s*=\s*(?:distinct\s+)?!DILexicalBlock(?:File)?\([^)]*(?:scope:\s*!(\d+))?[^)]*file:\s*!(\d+)",
+        )?;
         let ret_re = Regex::new(r"^\s+ret\s+")?;
         let entry_label_re = Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_]*:\s*$")?;
 
@@ -152,7 +165,10 @@ impl Instrumenter {
             if let Some(caps) = di_file_re.captures(line) {
                 let id: u64 = caps.get(1).unwrap().as_str().parse()?;
                 let filename = caps.get(2).unwrap().as_str().to_string();
-                let directory = caps.get(3).map(|m| m.as_str().to_string()).unwrap_or_default();
+                let directory = caps
+                    .get(3)
+                    .map(|m| m.as_str().to_string())
+                    .unwrap_or_default();
                 di_files.insert(id, (filename, directory));
             }
 
@@ -290,7 +306,12 @@ impl Instrumenter {
             if at_block_start && trimmed.starts_with('%') && !trimmed.contains(" = phi ") {
                 at_block_start = false;
             }
-            if at_block_start && !trimmed.contains(" = phi ") && !trimmed.ends_with(':') && !trimmed.starts_with(';') && !trimmed.is_empty() {
+            if at_block_start
+                && !trimmed.contains(" = phi ")
+                && !trimmed.ends_with(':')
+                && !trimmed.starts_with(';')
+                && !trimmed.is_empty()
+            {
                 at_block_start = false;
             }
 
@@ -325,7 +346,7 @@ impl Instrumenter {
                     || trimmed.starts_with("i16 ")   // switch case labels
                     || trimmed.starts_with("i32 ")   // switch case labels
                     || trimmed.starts_with("i64 ")   // switch case labels
-                    || trimmed.starts_with(']');     // switch closing bracket
+                    || trimmed.starts_with(']'); // switch closing bracket
 
                 if !should_skip {
                     if let Some(caps) = dbg_loc_re.captures(line) {
@@ -335,7 +356,11 @@ impl Instrumenter {
                             if !line.contains("@__line_profiler") {
                                 // Resolve file path from scope
                                 let file_path = resolve_file(scope_id);
-                                let resolved_file = if file_path.is_empty() { function_name.clone() } else { file_path };
+                                let resolved_file = if file_path.is_empty() {
+                                    function_name.clone()
+                                } else {
+                                    file_path
+                                };
                                 let loc = SourceLocation {
                                     file: resolved_file.clone(),
                                     line: line_num,

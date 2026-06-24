@@ -20,8 +20,7 @@ fn main() -> Result<()> {
     }
 
     // Find the real linker (cc by default)
-    let real_linker = env::var("LINE_PROFILER_REAL_LINKER")
-        .unwrap_or_else(|_| "cc".to_string());
+    let real_linker = env::var("LINE_PROFILER_REAL_LINKER").unwrap_or_else(|_| "cc".to_string());
 
     // Get the instrumentation directory where we stored .o files
     let instrument_dir = env::var("LINE_PROFILER_INSTRUMENT_DIR")
@@ -50,8 +49,11 @@ fn main() -> Result<()> {
                     let instrumented_path = dir.join(filename);
                     if instrumented_path.exists() {
                         if debug {
-                            eprintln!("[linker-wrapper] Substituting {} -> {}",
-                                arg, instrumented_path.display());
+                            eprintln!(
+                                "[linker-wrapper] Substituting {} -> {}",
+                                arg,
+                                instrumented_path.display()
+                            );
                         }
                         new_args.push(instrumented_path.to_string_lossy().to_string());
                         continue;

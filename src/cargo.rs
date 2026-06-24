@@ -55,7 +55,11 @@ impl CargoCommand {
     }
 
     /// Run the built binary
-    pub fn run(&self, binary_path: &std::path::Path, args: &[String]) -> Result<std::process::Output> {
+    pub fn run(
+        &self,
+        binary_path: &std::path::Path,
+        args: &[String],
+    ) -> Result<std::process::Output> {
         Command::new(binary_path)
             .args(args)
             .output()

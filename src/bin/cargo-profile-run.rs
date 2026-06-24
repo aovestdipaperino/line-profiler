@@ -51,7 +51,9 @@ fn main() -> Result<()> {
 
     // Get path to cargo-profile-build (same directory as this binary)
     let self_path = std::env::current_exe()?;
-    let bin_dir = self_path.parent().ok_or_else(|| anyhow::anyhow!("No parent dir"))?;
+    let bin_dir = self_path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("No parent dir"))?;
     let profile_build = bin_dir.join("cargo-profile-build");
 
     // First, build with profiling
@@ -83,7 +85,10 @@ fn main() -> Result<()> {
     }
 
     // Determine the binary path
-    let target_dir = args.target_dir.clone().unwrap_or_else(|| PathBuf::from("target"));
+    let target_dir = args
+        .target_dir
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("target"));
     let profile_dir = if args.release { "release" } else { "debug" };
 
     // Get binary name - example, explicit bin, or package name
@@ -96,7 +101,10 @@ fn main() -> Result<()> {
     };
 
     let binary_path = if is_example {
-        target_dir.join(profile_dir).join("examples").join(&bin_name)
+        target_dir
+            .join(profile_dir)
+            .join("examples")
+            .join(&bin_name)
     } else {
         target_dir.join(profile_dir).join(&bin_name)
     };
