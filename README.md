@@ -1,5 +1,7 @@
 # line-profiler
 
+[![GitHub stars](https://img.shields.io/github/stars/aovestdipaperino/line-profiler?logo=github&color=brightgreen)](https://github.com/aovestdipaperino/line-profiler/stargazers)
+
 A line-level profiler for Rust that shows exactly where your program spends time, down to individual source lines.
 
 ## Features
